@@ -3,22 +3,23 @@ import numpy as np
 
 
 def prefilter_items(data, take_n_popular=5000, item_features=None):
-    popularity = data.groupby('item_id')['user_id'].nunique().reset_index()
-    popularity['user_id'] = popularity['user_id'] / popularity['user_id'].nunique()
-    popularity.rename(columns={'user_id': 'share_unique_users'}, inplace=True)
+#     popularity = data.groupby('item_id')['user_id'].nunique().reset_index()
+#     popularity['user_id'] = popularity['user_id'] / popularity['user_id'].nunique()
+#     popularity.rename(columns={'user_id': 'share_unique_users'}, inplace=True)
  
-    # Уберем самые популярные товары (их и так купят)
-    top_popular = popularity[popularity['share_unique_users'] > 0.2].item_id.tolist()
-    data = data[~data['item_id'].isin(top_popular)]
+#     # Уберем самые популярные товары (их и так купят)
+#     top_popular = popularity[popularity['share_unique_users'] > 0.2].item_id.tolist()
+#     data = data[~data['item_id'].isin(top_popular)]
 
-    # Уберем самые НЕ популярные товары (их и так НЕ купят)
-    top_notpopular = popularity[popularity['share_unique_users'] < 0.02].item_id.tolist()
-    data = data[~data['item_id'].isin(top_notpopular)]
+#     # Уберем самые НЕ популярные товары (их и так НЕ купят)
+#     top_notpopular = popularity[popularity['share_unique_users'] < 0.02].item_id.tolist()
+#     data = data[~data['item_id'].isin(top_notpopular)]
 
     # Уберем товары, которые не продавались за последние 12 месяцев
-    items_last_12 = data[data['week_no'] >= 48].item_id.tolist()
-    items_older_12 = data[data['week_no'] < 48].item_id.tolist()
-    items_not_sale_12 = list(set(items_older_12) - set(items_last_12))
+    week = data['week_no'].max()
+    items = data.item_id.tolist()
+    items_last_12 = data[data['week_no'] > week - 48].item_id.tolist()
+    items_not_sale_12 = list(set(items) - set(items_last_12))
     data = data[~data['item_id'].isin(items_not_sale_12)]
 
 #     # Уберем не интересные для рекоммендаций категории (department)
