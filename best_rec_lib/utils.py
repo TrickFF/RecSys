@@ -230,16 +230,20 @@ def trainValLvl1Split(data, test_user_ids):
 
 def getRecommendationsLvl2(preds_lvl_2, x, recommender, N=5):
     spam = preds_lvl_2.loc[preds_lvl_2['user_id'] == x]
-    
+    result = []
     if spam.shape[0] > 0:
         # если user_id есть в результатах классификатора - берем топ5 рекомендаций
-        spam = spam.sort_values('pred_proba', ascending=False).head(N)
+        spam = spam.sort_values('pred_proba', ascending=False)
         spam = list(spam.item_id)
+        for el in spam:
+            if el not in result:
+                result.append(el)
+        result = result[:N]
     else:
         # если user_id нет в результатах классификатора - берем топ5 популярных товаров
-        spam = recommender._extend_with_top_popular([], N=5)
+        result = recommender._extend_with_top_popular([], N=5)
     
-    return spam
+    return result
 
 
 def postfilter_items(user_id, recommednations):
