@@ -143,15 +143,19 @@ def lvl2Features(data_train, user_features, item_features):
     user_last_buy_item = user_last_buy_item.rename(columns= {'day': 'user_last_buy_item'})
     user_last_buy_item['user_last_buy_item'] = max_day - user_last_buy_item['user_last_buy_item']
     
+    # Среднее время транзакции при покупке пользователем товара
+    mean_user_item_trans = spam_features.groupby(['user_id', 'item_id'])[['trans_time']].mean()
+    mean_user_item_trans = mean_user_item_trans.rename(columns= {'trans_time': 'mean_user_item_trans'})
     
-    return age_mode, inc_mode, cat_num_week_buy, avg_check_cat_all_users, avg_check, max_check, avg_check_cat, max_check_cat, item_buy_sum, item_buy_count, item_buy_num_sum, orders_with_item, user_last_buy_item
+    
+    return age_mode, inc_mode, cat_num_week_buy, avg_check_cat_all_users, avg_check, max_check, avg_check_cat, max_check_cat, item_buy_sum, item_buy_count, item_buy_num_sum, orders_with_item, user_last_buy_item, mean_user_item_trans
 
 def trainTestDf(data_train, targets_lvl_2, item_features, user_features):
     targets_lvl_2 = targets_lvl_2.merge(item_features, on='item_id', how='left')
     targets_lvl_2 = targets_lvl_2.merge(user_features, on='user_id', how='left')
 
     
-    age_mode, inc_mode, cat_num_week_buy, avg_check_cat_all_users, avg_check, max_check, avg_check_cat, max_check_cat, item_buy_sum, item_buy_count, item_buy_num_sum, orders_with_item, user_last_buy_item = lvl2Features(data_train, user_features, item_features)
+    age_mode, inc_mode, cat_num_week_buy, avg_check_cat_all_users, avg_check, max_check, avg_check_cat, max_check_cat, item_buy_sum, item_buy_count, item_buy_num_sum, orders_with_item, user_last_buy_item, mean_user_item_trans = lvl2Features(data_train, user_features, item_features)
     
     targets_lvl_2 = targets_lvl_2.merge(age_mode, on='item_id', how='left')
     targets_lvl_2 = targets_lvl_2.merge(inc_mode, on='item_id', how='left')
@@ -166,6 +170,7 @@ def trainTestDf(data_train, targets_lvl_2, item_features, user_features):
     targets_lvl_2 = targets_lvl_2.merge(item_buy_num_sum, on=['user_id', 'item_id'], how='left')
     targets_lvl_2 = targets_lvl_2.merge(orders_with_item, on='item_id', how='left')
     targets_lvl_2 = targets_lvl_2.merge(user_last_buy_item, on=['user_id', 'item_id'], how='left')
+    targets_lvl_2 = targets_lvl_2.merge(mean_user_item_trans, on=['user_id', 'item_id'], how='left')
     
     ##### Делим данные на обучающую выборку и таргет #####
     # Заполняем пропуски
@@ -181,6 +186,7 @@ def trainTestDf(data_train, targets_lvl_2, item_features, user_features):
     targets_lvl_2.loc[targets_lvl_2['item_buy_num_sum'] == 'None/Unknown', 'item_buy_num_sum'] = 0.0
     targets_lvl_2.loc[targets_lvl_2['orders_with_item'] == 'None/Unknown', 'orders_with_item'] = 0.0
     targets_lvl_2.loc[targets_lvl_2['user_last_buy_item'] == 'None/Unknown', 'user_last_buy_item'] = 1000.0
+    targets_lvl_2.loc[targets_lvl_2['mean_user_item_trans'] == 'None/Unknown', 'mean_user_item_trans'] = 0.0
     
     targets_lvl_2["avg_check_cat"] = targets_lvl_2.avg_check_cat.astype(np.float64)
     targets_lvl_2["max_check_cat"] = targets_lvl_2.max_check_cat.astype(np.float64)
@@ -189,6 +195,7 @@ def trainTestDf(data_train, targets_lvl_2, item_features, user_features):
     targets_lvl_2["item_buy_num_sum"] = targets_lvl_2.item_buy_num_sum.astype(np.float64)
     targets_lvl_2["orders_with_item"] = targets_lvl_2.orders_with_item.astype(np.float64)
     targets_lvl_2["user_last_buy_item"] = targets_lvl_2.user_last_buy_item.astype(np.float64)
+    targets_lvl_2["mean_user_item_trans"] = targets_lvl_2.mean_user_item_trans.astype(np.float64)
     
     X_train = targets_lvl_2.drop('target', axis=1)
     y_train = targets_lvl_2[['target']]
