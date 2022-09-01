@@ -5,10 +5,6 @@ import math
 
 
 def prefilter_items(data, take_n_popular=5000, item_features=None):
-    
-    '''
-    Учитывая, что мы будем в пределах разумного максимизировать MAP@k, то популярные и непопулярные товары не фильтруем
-    '''
 #     week = data['week_no'].max()
 #     popularity = data.groupby('item_id')['user_id'].nunique().reset_index()
 #     popularity['user_id'] = popularity['user_id'] / week
@@ -197,10 +193,7 @@ def trainTestDf(data_train, targets_lvl_2, item_features, user_features):
     X_train = targets_lvl_2.drop('target', axis=1)
     y_train = targets_lvl_2[['target']]
     
-    cat_feats = X_train.columns[2:17].tolist()
-    X_train[cat_feats] = X_train[cat_feats].astype('category')
-    
-    return X_train, y_train, cat_feats
+    return X_train, y_train
 
 
 def trainValLvl1Split(data, test_user_ids):

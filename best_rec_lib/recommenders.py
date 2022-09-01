@@ -69,7 +69,7 @@ class MainRecommender:
         
         user_item_matrix = pd.pivot_table(data, 
                                   index='user_id', columns='item_id', 
-                                  values='sales_value',
+                                  values='sales_value', # sales_value
                                   aggfunc='sum', 
                                   fill_value=0
                                  )
@@ -106,7 +106,7 @@ class MainRecommender:
         return own_recommender
 
     @staticmethod
-    def fit(user_item_matrix, n_factors=250, regularization=0.01, iterations=2, num_threads=-1):
+    def fit(user_item_matrix, n_factors=150, regularization=0.01, iterations=3, num_threads=-1):
         """Обучает ALS"""
 
         model = AlternatingLeastSquares(factors=n_factors,
@@ -118,19 +118,31 @@ class MainRecommender:
         return model
     
     @staticmethod 
-    def fit_classifier(X_train, y_train, cat_feats):
+    def fit_CatBoostClassifier(X_train, y_train):
         """Обучает модель, которая предсказывает вероятности взаимодействия пользователя с товарами, рекомендованными моделью 1го уровня"""
         
         # CatBoostClassifier
+        cat_feats = X_train.columns[2:17].tolist()
+        X_train[cat_feats] = X_train[cat_feats].astype('category')
         eval_data = Pool(X_train, y_train, cat_features=cat_feats)
+        
         clf = CatBoostClassifier(iterations=500, eval_metric='BrierScore', use_best_model=True, random_seed=42)
         clf.fit(X_train, y_train, cat_features=cat_feats, eval_set=eval_data, early_stopping_rounds=10, verbose=False)
 
-        # LGBMClassifier
-#         clf = LGBMClassifier(objective="binary", random_state=42)
-#         clf.fit(X_train, y_train, categorical_feature=cat_feats, verbose=False) # eval_set=(X_train, y_train), eval_metric='AUC',
-
         return clf
+
+    @staticmethod 
+    def fit_LGBMClassifier(X_train, y_train):
+        """Обучает модель, которая предсказывает вероятности взаимодействия пользователя с товарами, рекомендованными моделью 1го уровня"""
+
+        # LGBMClassifier
+        cat_feats = X_train.columns[0:9].tolist()
+        X_train[cat_feats] = X_train[cat_feats].astype('category')
+        
+        clf_lgbm = LGBMClassifier(objective="binary", random_state=42)
+        clf_lgbm.fit(X_train, y_train, categorical_feature=cat_feats, verbose=False)
+
+        return clf_lgbm
 
     def _update_dict(self, user_id):
         """Если появился новыю user / item, то нужно обновить словари"""
@@ -205,16 +217,34 @@ class MainRecommender:
             return self._extend_with_top_popular([], N=N)
         return self._get_recommendations(user, model=self.own_recommender, N=N)
     
-    def get_classification_lvl2_preds(self, X_train, y_train, cat_feats):
+    def get_CatBoost_lvl2_preds(self, X_train, y_train):
         """Рекомендуем товары после ранжирования классификатором"""
         
         self.X_train = X_train
         self.y_train = y_train
-        self.cat_feats = cat_feats
         
-        self.clf = self.fit_classifier(self.X_train, self.y_train, self.cat_feats)
+        self.clf = self.fit_CatBoostClassifier(self.X_train, self.y_train)
 
         return self._get_lvl2_preds(self.X_train, self.clf)
+    
+    def get_LGBM_lvl2_preds(self, X_train, y_train):
+        """Рекомендуем товары после ранжирования классификатором"""
+        
+        lgbm_drop_feats = ['department', 
+                   'sub_commodity_desc', 
+                   'income_desc', 
+                   'hh_comp_desc', 
+                   'household_size_desc', 
+                   'kid_category_desc', 
+                   'age_mode', 
+                   'inc_mode']
+        
+        self.X_train = X_train.drop(columns=lgbm_drop_feats)
+        self.y_train = y_train
+        
+        self.clf_lgbm = self.fit_LGBMClassifier(self.X_train, self.y_train)
+
+        return self._get_lvl2_preds(self.X_train, self.clf_lgbm)    
     
     def get_similar_items_recommendation(self, user, N=5):
         """Рекомендуем товары, похожие на топ-N купленных юзером товаров"""
